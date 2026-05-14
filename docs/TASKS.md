@@ -13,9 +13,9 @@
 - [x] Integrate a C++ Kafka Producer into the Ingress service to asynchronously batch and publish events.
 
 ## Phase 3: Processor & Sharding Logic
-- [ ] Build the Python Kafka Consumer worker.
-- [ ] Implement the consistent-hashing ring logic to route events to specific internal processors.
-- [ ] Implement state replication and automatic failover logic for the Python workers.
+- [x] Build the Python Kafka Consumer worker.
+- [x] Implement the consistent-hashing ring logic to route events to specific internal processors.
+- [x] Implement state replication and automatic failover logic for the Python workers.
 
 ## Phase 4: Observability Integration
 - [ ] Instrument the C++ Ingress node with Prometheus metrics (requests/sec, latency).

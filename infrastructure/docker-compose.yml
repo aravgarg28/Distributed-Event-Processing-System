@@ -70,6 +70,50 @@ services:
     restart: on-failure
 
   # ---------------------------------------------------------------------------
+  # Processor Workers — Python Kafka consumers with consistent hash routing
+  # Two instances form the initial ring: worker-1 (primary) + worker-2 (replica).
+  # Each owns ~50% of entity_id shards; worker-2 holds hot-standby state for
+  # worker-1's shards and will auto-promote on missed heartbeat (>30 s).
+  # ---------------------------------------------------------------------------
+  processor-1:
+    build:
+      context: ..
+      dockerfile: src/processor/Dockerfile
+    container_name: deps-processor-1
+    environment:
+      NODE_ID: "worker-1"
+      ALL_NODES: "worker-1,worker-2"
+      KAFKA_BROKERS: "kafka:29092"
+      KAFKA_TOPIC: "events"
+      STATE_TOPIC: "state-updates"
+      HEARTBEAT_TOPIC: "heartbeats"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - deps-network
+    restart: on-failure
+
+  processor-2:
+    build:
+      context: ..
+      dockerfile: src/processor/Dockerfile
+    container_name: deps-processor-2
+    environment:
+      NODE_ID: "worker-2"
+      ALL_NODES: "worker-1,worker-2"
+      KAFKA_BROKERS: "kafka:29092"
+      KAFKA_TOPIC: "events"
+      STATE_TOPIC: "state-updates"
+      HEARTBEAT_TOPIC: "heartbeats"
+    depends_on:
+      kafka:
+        condition: service_healthy
+    networks:
+      - deps-network
+    restart: on-failure
+
+  # ---------------------------------------------------------------------------
   # Prometheus — metrics collection
   # Scrapes itself + placeholder targets for ingress/processor (Phase 4).
   # ---------------------------------------------------------------------------

@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-05-14
+### Added
+- Phase 3 complete: Processor & Sharding Logic.
+- `src/processor/consistent_hash.py`: `ConsistentHashRing` with configurable vnodes (default 150) using MD5 hashing. `get_node(key)` returns the primary; `get_replica_node(key)` returns the first distinct clockwise node — the hot-standby. Tested for determinism, even distribution (<30% imbalance), and correct replica/primary separation.
+- `src/processor/state_store.py`: Thread-safe (RLock) per-entity state store with `get`/`set`/`delete`/`snapshot` (deep copy)/`restore`. Optional `on_write` callback for write-through replication; `replicate=False` suppresses it for replica ingestion.
+- `src/processor/worker.py`: `ProcessorWorker` — Kafka consumer that routes events via `ConsistentHashRing`; primary node accumulates per-entity state (event_count, last_event_type, last_timestamp_ms) and replicates to the `state-updates` topic via `on_write`. Replica node stores updates from `state-updates`. Background threads: heartbeat publisher (5 s interval), heartbeat checker (30 s timeout → `handle_node_failure`), aux topic consumer. `handle_node_failure(node_id)` removes node from ring and promotes matching replica state to primary. `EventData` dataclass decouples proto from business logic, enabling pure-Python unit tests.
+- `src/processor/main.py`: Reads `NODE_ID`, `ALL_NODES`, `KAFKA_BROKERS`, `KAFKA_TOPIC`, `STATE_TOPIC`, `HEARTBEAT_TOPIC` from env; SIGTERM/SIGINT graceful shutdown.
+- `src/processor/Dockerfile`: Multi-stage Python 3.11-slim build; generates Python proto stubs from shared `src/ingress/event.proto` at build time using `grpcio-tools`.
+- `src/processor/requirements.txt`: `confluent-kafka==2.3.0`, `protobuf==4.25.3`, `grpcio-tools==1.62.2`.
+- `infrastructure/docker-compose.yml`: Added `processor-1` (worker-1) and `processor-2` (worker-2) services; both use internal Kafka listener (`kafka:29092`), share `ALL_NODES=worker-1,worker-2`, and depend on Kafka health check.
+- `tests/processor/test_consistent_hash.py`: 11 tests — determinism, full coverage, node lifecycle, distribution quality, replica correctness.
+- `tests/processor/test_state_store.py`: 10 tests — CRUD, snapshot isolation (deep copy), callback control, thread safety.
+- `tests/processor/test_worker.py`: 9 tests — primary event accumulation, non-primary skip, replica storage, non-replica ignore, self-update exclusion, failover ring removal, replica promotion, scoped promotion. All 30 tests pass.
+- `pytest.ini`: root-level pytest configuration pointing at `tests/`.
+
+### Fixed
+- `state_store.py` snapshot() was returning a shallow copy; nested dict mutation escaped the store. Changed to `copy.deepcopy` (caught by TDD test before any production code ran this path).
+
 ## [0.2.0] - 2026-05-14
 ### Added
 - Phase 2 complete: Ingress & Messaging Layer.
