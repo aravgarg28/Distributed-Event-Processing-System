@@ -3,6 +3,7 @@ find_package(GTest REQUIRED)
 add_executable(ingress_tests
     test_server.cpp
     test_kafka_producer.cpp
+    test_metrics.cpp
 )
 target_include_directories(ingress_tests PRIVATE
     "${CMAKE_SOURCE_DIR}/src/ingress"

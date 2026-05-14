@@ -7,6 +7,20 @@ find_program(PROTOC_EXEC      protoc         REQUIRED)
 find_program(GRPC_CPP_PLUGIN  grpc_cpp_plugin REQUIRED)
 
 # ---------------------------------------------------------------------------
+# prometheus-cpp — fetched at configure time; statically linked
+# ---------------------------------------------------------------------------
+include(FetchContent)
+FetchContent_Declare(
+    prometheus-cpp
+    GIT_REPOSITORY https://github.com/jupp0r/prometheus-cpp.git
+    GIT_TAG        v1.2.4
+    GIT_SHALLOW    TRUE
+)
+set(ENABLE_TESTING    OFF CACHE BOOL "" FORCE)
+set(ENABLE_COMPRESSION OFF CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(prometheus-cpp)
+
+# ---------------------------------------------------------------------------
 # Proto code generation
 # ---------------------------------------------------------------------------
 
@@ -37,11 +51,12 @@ target_include_directories(event_proto PUBLIC "${PROTO_OUT_DIR}")
 target_link_libraries(event_proto PUBLIC protobuf::libprotobuf gRPC::grpc++)
 
 # ---------------------------------------------------------------------------
-# ingress_lib — core logic, linked by both the binary and the test suite
+# ingress_lib — core logic, shared by binary and test suite
 # ---------------------------------------------------------------------------
 
 add_library(ingress_lib STATIC
     kafka_producer.cpp
+    metrics.cpp
     server.cpp
 )
 target_include_directories(ingress_lib
@@ -50,6 +65,7 @@ target_include_directories(ingress_lib
 )
 target_link_libraries(ingress_lib
     PUBLIC  event_proto gRPC::grpc++ protobuf::libprotobuf
+            prometheus-cpp::pull prometheus-cpp::core
     PRIVATE ${RDKAFKA_LIBRARIES}
 )
 
