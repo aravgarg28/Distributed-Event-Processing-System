@@ -3,6 +3,7 @@ import os
 import signal
 import sys
 
+from metrics import start_metrics_server
 from worker import ProcessorWorker
 
 logging.basicConfig(
@@ -22,8 +23,11 @@ def main() -> None:
 
     all_nodes = [n.strip() for n in all_nodes_env.split(",") if n.strip()]
 
+    metrics_port = int(os.environ.get("METRICS_PORT", "8081"))
+    start_metrics_server(metrics_port)
     logger.info(
-        "starting | node=%s brokers=%s nodes=%s", node_id, brokers, all_nodes
+        "starting | node=%s brokers=%s nodes=%s metrics_port=%d",
+        node_id, brokers, all_nodes, metrics_port,
     )
 
     worker = ProcessorWorker(

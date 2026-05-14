@@ -9,6 +9,7 @@ from confluent_kafka import Consumer, KafkaError, Producer
 
 from consistent_hash import ConsistentHashRing
 from state_store import StateStore
+import metrics as m
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,7 @@ class ProcessorWorker:
 
     HEARTBEAT_INTERVAL_S = 5
     HEARTBEAT_TIMEOUT_MS = 30_000
+    STORE_GAUGE_INTERVAL_S = 15
 
     def __init__(
         self,
@@ -102,6 +104,7 @@ class ProcessorWorker:
         primary = self.ring.get_node(event.entity_id)
 
         if primary == self.node_id:
+            t0 = time.monotonic()
             current = self.primary_store.get(event.entity_id) or {
                 "event_count": 0,
                 "last_event_type": "",
@@ -112,6 +115,8 @@ class ProcessorWorker:
             current["last_timestamp_ms"] = event.timestamp_ms
             # set() triggers _replicate_state via the on_write callback.
             self.primary_store.set(event.entity_id, current)
+            m.record_event_processed(self.node_id)
+            m.record_processing_duration(self.node_id, time.monotonic() - t0)
             logger.debug(
                 "primary | entity=%s type=%s count=%d",
                 event.entity_id,
@@ -119,6 +124,7 @@ class ProcessorWorker:
                 current["event_count"],
             )
         else:
+            m.record_event_skipped(self.node_id)
             logger.debug(
                 "skip | entity=%s → primary=%s replica=%s",
                 event.entity_id,
@@ -159,6 +165,7 @@ class ProcessorWorker:
                 self.primary_store.set(entity_id, state)
                 promoted += 1
 
+        m.record_failover(self.node_id)
         logger.info(
             "failover complete: promoted %d entities from replica → primary",
             promoted,
@@ -220,6 +227,16 @@ class ProcessorWorker:
                         self._peer_heartbeats.pop(node_id, None)
             time.sleep(self.HEARTBEAT_INTERVAL_S)
 
+    def _store_gauge_loop(self) -> None:
+        """Periodically push store-size gauges so Grafana always has fresh data."""
+        while self._running:
+            m.update_store_sizes(
+                self.node_id,
+                primary=len(self.primary_store.snapshot()),
+                replica=len(self.replica_store.snapshot()),
+            )
+            time.sleep(self.STORE_GAUGE_INTERVAL_S)
+
     def _consume_aux_topics(self) -> None:
         """Drain state-updates and heartbeats topics on a dedicated thread."""
         self._state_consumer.subscribe([self._state_topic])
@@ -253,9 +270,10 @@ class ProcessorWorker:
         self._event_consumer.subscribe([self._event_topic])
 
         daemon_threads = [
-            threading.Thread(target=self._heartbeat_loop,     daemon=True, name="hb-pub"),
+            threading.Thread(target=self._heartbeat_loop,        daemon=True, name="hb-pub"),
             threading.Thread(target=self._check_heartbeats_loop, daemon=True, name="hb-chk"),
-            threading.Thread(target=self._consume_aux_topics, daemon=True, name="aux-consumer"),
+            threading.Thread(target=self._consume_aux_topics,    daemon=True, name="aux-consumer"),
+            threading.Thread(target=self._store_gauge_loop,      daemon=True, name="gauge-updater"),
         ]
         for t in daemon_threads:
             t.start()
@@ -269,6 +287,7 @@ class ProcessorWorker:
                 if msg.error():
                     if msg.error().code() != KafkaError._PARTITION_EOF:
                         logger.error("consumer error: %s", msg.error())
+                        m.record_kafka_error(self.node_id)
                     continue
                 event = self._parse_event(msg.value())
                 if event:
