@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package deps;
+
+// EventIngress is the single entry point for all upstream event producers.
+// It accepts individual events or pre-batched payloads over gRPC.
+service EventIngress {
+  rpc Submit      (SubmitRequest)      returns (SubmitResponse);
+  rpc SubmitBatch (SubmitBatchRequest) returns (SubmitResponse);
+}
+
+message Event {
+  string event_id     = 1;  // Client-generated UUID; used for deduplication
+  string entity_id    = 2;  // Partition key — drives consistent hashing in processors
+  string event_type   = 3;  // Dot-namespaced type, e.g. "user.click", "order.placed"
+  int64  timestamp_ms = 4;  // Unix epoch milliseconds (set by producer)
+  bytes  payload      = 5;  // Arbitrary body: raw JSON, Avro, nested proto, etc.
+}
+
+message SubmitRequest {
+  Event event = 1;
+}
+
+message SubmitBatchRequest {
+  repeated Event events = 1;
+}
+
+message SubmitResponse {
+  bool   success        = 1;
+  string message        = 2;
+  int32  accepted_count = 3;
+}

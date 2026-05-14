@@ -8,9 +8,9 @@
 - [x] Create a `Makefile` or build scripts for easy environment spin-up.
 
 ## Phase 2: Ingress & Messaging Layer
-- [ ] Define the protobuf (`.proto`) schema for the Event payload.
-- [ ] Build the C++ gRPC Server (Ingress) to accept events.
-- [ ] Integrate a C++ Kafka Producer into the Ingress service to asynchronously batch and publish events.
+- [x] Define the protobuf (`.proto`) schema for the Event payload.
+- [x] Build the C++ gRPC Server (Ingress) to accept events.
+- [x] Integrate a C++ Kafka Producer into the Ingress service to asynchronously batch and publish events.
 
 ## Phase 3: Processor & Sharding Logic
 - [ ] Build the Python Kafka Consumer worker.
