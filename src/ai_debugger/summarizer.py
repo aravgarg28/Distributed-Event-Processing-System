@@ -1,7 +1,7 @@
 """LangChain chain that summarizes Docker error bursts into root-cause text."""
 from typing import Optional
 
-from langchain_anthropic import ChatAnthropic
+from langchain_groq import ChatGroq
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 
@@ -31,13 +31,13 @@ _PROMPT = ChatPromptTemplate.from_messages([
 
 
 class LogSummarizer:
-    def __init__(self, api_key: str, model: str = "claude-haiku-4-5-20251001"):
+    def __init__(self, api_key: str, model: str = "llama-3.3-70b-versatile"):
         self.model = model
         self._api_key = api_key
         self._chain = None
 
     def build_chain(self):
-        llm = ChatAnthropic(model=self.model, api_key=self._api_key, max_tokens=256)
+        llm = ChatGroq(model=self.model, api_key=self._api_key, max_tokens=256)
         self._chain = _PROMPT | llm | StrOutputParser()
 
     def summarize(self, burst: ErrorBurst) -> str:

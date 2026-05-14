@@ -15,8 +15,8 @@ ERROR_THRESHOLD = int(os.environ.get("ERROR_THRESHOLD", "5"))
 WINDOW_SECONDS = int(os.environ.get("WINDOW_SECONDS", "60"))
 GRAFANA_URL = os.environ.get("GRAFANA_URL", "http://grafana:3000")
 GRAFANA_TOKEN = os.environ.get("GRAFANA_API_TOKEN", "")
-ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
-MODEL = os.environ.get("LLM_MODEL", "claude-haiku-4-5-20251001")
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+MODEL = os.environ.get("LLM_MODEL", "llama-3.3-70b-versatile")
 
 _running = True
 
@@ -37,7 +37,7 @@ def main():
         error_threshold=ERROR_THRESHOLD,
         window_seconds=WINDOW_SECONDS,
     )
-    summarizer = LogSummarizer(api_key=ANTHROPIC_API_KEY, model=MODEL)
+    summarizer = LogSummarizer(api_key=GROQ_API_KEY, model=MODEL)
     annotator = GrafanaAnnotator(grafana_url=GRAFANA_URL, api_token=GRAFANA_TOKEN)
 
     print(f"AI Debugger watching: {CONTAINERS} — polling every {POLL_INTERVAL}s")

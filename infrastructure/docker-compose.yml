@@ -190,8 +190,8 @@ services:
       ERROR_THRESHOLD: "5"
       GRAFANA_URL: "http://grafana:3000"
       GRAFANA_API_TOKEN: "${GRAFANA_API_TOKEN}"
-      ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY}"
-      LLM_MODEL: "claude-haiku-4-5-20251001"
+      GROQ_API_KEY: "${GROQ_API_KEY}"
+      LLM_MODEL: "llama-3.3-70b-versatile"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     depends_on:

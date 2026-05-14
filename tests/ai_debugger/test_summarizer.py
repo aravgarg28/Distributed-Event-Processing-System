@@ -8,12 +8,12 @@ from summarizer import LogSummarizer
 
 class TestLogSummarizerInit:
     def test_stores_model_name(self):
-        s = LogSummarizer(model="claude-haiku-4-5-20251001", api_key="k")
-        assert s.model == "claude-haiku-4-5-20251001"
+        s = LogSummarizer(model="llama-3.3-70b-versatile", api_key="k")
+        assert s.model == "llama-3.3-70b-versatile"
 
     def test_default_model(self):
         s = LogSummarizer(api_key="k")
-        assert s.model == "claude-haiku-4-5-20251001"
+        assert s.model == "llama-3.3-70b-versatile"
 
 
 class TestLogSummarizerSummarize:
@@ -73,7 +73,7 @@ class TestLogSummarizerSummarize:
         assert mock_chain.invoke.call_count == 1
 
     def test_build_chain_creates_chain_attribute(self):
-        with patch("summarizer.ChatAnthropic") as mock_llm_cls:
+        with patch("summarizer.ChatGroq") as mock_llm_cls:
             mock_llm = MagicMock()
             mock_llm_cls.return_value = mock_llm
             mock_llm.__or__ = MagicMock(return_value=MagicMock())
