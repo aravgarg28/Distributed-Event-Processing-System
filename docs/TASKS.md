@@ -3,9 +3,9 @@
 **Status Key:** [ ] Not Started | [~] In Progress | [x] Completed
 
 ## Phase 1: Infrastructure & Scaffolding
-- [ ] Set up project directory structure.
-- [ ] Create `docker-compose.yml` containing Kafka, Zookeeper, Prometheus, and Grafana.
-- [ ] Create a `Makefile` or build scripts for easy environment spin-up.
+- [x] Set up project directory structure.
+- [x] Create `docker-compose.yml` containing Kafka (KRaft), Prometheus, and Grafana.
+- [x] Create a `Makefile` or build scripts for easy environment spin-up.
 
 ## Phase 2: Ingress & Messaging Layer
 - [ ] Define the protobuf (`.proto`) schema for the Event payload.

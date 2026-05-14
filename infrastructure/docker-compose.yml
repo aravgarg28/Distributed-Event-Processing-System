@@ -1,0 +1,109 @@
+services:
+
+  # ---------------------------------------------------------------------------
+  # Kafka (KRaft mode — no Zookeeper)
+  # Single-node broker + controller combined. CLUSTER_ID triggers auto-format
+  # of the log directory on first boot via the cp-kafka entrypoint script.
+  # ---------------------------------------------------------------------------
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    hostname: kafka
+    container_name: deps-kafka
+    ports:
+      - "9092:9092"   # external access (host-machine clients, C++ ingress)
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+
+      # Two data listeners + one controller listener
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_INTERNAL://0.0.0.0:29092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,PLAINTEXT_INTERNAL://kafka:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+
+      # Single-node defaults (replication factor 1 is correct for local dev)
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 1
+      KAFKA_NUM_PARTITIONS: 3
+
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      # Fixed cluster ID ensures idempotent volume re-use across `make clean`
+      CLUSTER_ID: "deps-kraft-cluster-00001"
+
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    networks:
+      - deps-network
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  # ---------------------------------------------------------------------------
+  # Prometheus — metrics collection
+  # Scrapes itself + placeholder targets for ingress/processor (Phase 4).
+  # ---------------------------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:v2.52.0
+    container_name: deps-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.console.libraries=/usr/share/prometheus/console_libraries
+      - --web.console.templates=/usr/share/prometheus/consoles
+      - --web.enable-lifecycle
+    networks:
+      - deps-network
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9090/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---------------------------------------------------------------------------
+  # Grafana — visualization
+  # Prometheus datasource auto-provisioned via /etc/grafana/provisioning.
+  # Default credentials: admin / admin (change on first login in production).
+  # ---------------------------------------------------------------------------
+  grafana:
+    image: grafana/grafana:10.4.3
+    container_name: deps-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    networks:
+      - deps-network
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  deps-network:
+    driver: bridge
+
+volumes:
+  kafka-data:
+  prometheus-data:
+  grafana-data:
