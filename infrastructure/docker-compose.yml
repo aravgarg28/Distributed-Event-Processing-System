@@ -174,6 +174,33 @@ services:
       timeout: 5s
       retries: 5
 
+  # ---------------------------------------------------------------------------
+  # AI Debugger — LangChain service that tails Docker logs, summarizes errors
+  # via Claude Haiku, and pushes root-cause annotations to Grafana.
+  # Requires ANTHROPIC_API_KEY and GRAFANA_API_TOKEN in a .env file.
+  # ---------------------------------------------------------------------------
+  ai-debugger:
+    build:
+      context: ..
+      dockerfile: src/ai_debugger/Dockerfile
+    container_name: deps-ai-debugger
+    environment:
+      WATCH_CONTAINERS: "ingress,processor-1,processor-2"
+      POLL_INTERVAL_SECONDS: "30"
+      ERROR_THRESHOLD: "5"
+      GRAFANA_URL: "http://grafana:3000"
+      GRAFANA_API_TOKEN: "${GRAFANA_API_TOKEN}"
+      ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY}"
+      LLM_MODEL: "claude-haiku-4-5-20251001"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      grafana:
+        condition: service_healthy
+    networks:
+      - deps-network
+    restart: on-failure
+
 networks:
   deps-network:
     driver: bridge
