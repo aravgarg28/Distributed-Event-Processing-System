@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-05-14
+### Added
+- Phase 5 complete: AI Log Summarizer.
+- `src/ai_debugger/log_monitor.py`: `LogMonitor` tails Docker container logs via `docker-py`; `is_error_line` detects error/fatal/exception/traceback/panic/critical (case-insensitive); `collect_burst` returns `ErrorBurst` when error line count meets configurable threshold (default 5); `scan` iterates all watched containers and yields bursts.
+- `src/ai_debugger/summarizer.py`: `LogSummarizer` wraps a LangChain chain (`ChatPromptTemplate | ChatAnthropic | StrOutputParser`) using `claude-haiku-4-5-20251001`; SRE-tuned system prompt instructs the LLM to identify what failed, why, and the first remediation step in 2-4 sentences; chain built lazily on first `summarize()` call.
+- `src/ai_debugger/grafana_annotator.py`: `GrafanaAnnotator` POSTs to Grafana `/api/annotations` with Bearer token auth; merges default `ai-debugger` tag with per-burst container tag; `annotate_burst` convenience method formats `[container] summary` text and returns annotation id; raises `RuntimeError` on non-200 status.
+- `src/ai_debugger/main.py`: poll loop (configurable interval, default 30s) — `scan → summarize → annotate`; reads all config from env vars; graceful SIGTERM/SIGINT shutdown.
+- `src/ai_debugger/Dockerfile`: `python:3.11-slim`; installs requirements; mounts Docker socket at runtime via docker-compose volume.
+- `src/ai_debugger/requirements.txt`: `docker==7.1.0`, `langchain==0.2.16`, `langchain-anthropic==0.1.23`, `anthropic==0.34.2`, `requests==2.32.3`.
+- `.env.example`: documents `ANTHROPIC_API_KEY` and `GRAFANA_API_TOKEN` — copy to `.env` before `make up`.
+- `infrastructure/docker-compose.yml`: `ai-debugger` service mounts `/var/run/docker.sock` (read-only); depends on Grafana health check; reads secrets from `.env` via `${VAR}` interpolation.
+- `tests/ai_debugger/conftest.py`, `test_log_monitor.py`, `test_summarizer.py`, `test_grafana_annotator.py`: 37 unit tests covering all behaviour paths (TDD — written before implementation).
+
 ## [0.4.0] - 2026-05-14
 ### Added
 - Phase 4 complete: Observability Integration.

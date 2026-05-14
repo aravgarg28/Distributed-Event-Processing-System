@@ -23,6 +23,6 @@
 - [x] Provision a default Grafana dashboard via configuration as code.
 
 ## Phase 5: The AI Log Summarizer
-- [ ] Build a Python service using LangChain that tails the Docker logs or receives error events.
-- [ ] Prompt engineer the LangChain service to extract root causes from raw error logs.
-- [ ] Connect the LangChain service to the Grafana API to push human-readable text as Annotations on the metrics graphs.
+- [x] Build a Python service using LangChain that tails the Docker logs or receives error events.
+- [x] Prompt engineer the LangChain service to extract root causes from raw error logs.
+- [x] Connect the LangChain service to the Grafana API to push human-readable text as Annotations on the metrics graphs.
