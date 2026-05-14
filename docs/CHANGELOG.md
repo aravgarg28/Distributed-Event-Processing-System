@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-05-14
+### Added
+- Phase 4 complete: Observability Integration.
+- `src/ingress/metrics.h/cpp`: `IngressMetrics` wraps prometheus-cpp; 5 families — `deps_ingress_requests_total`, `deps_ingress_requests_errors_total`, `deps_ingress_request_duration_seconds` (histogram, 11 buckets), `deps_ingress_kafka_published_total`, `deps_ingress_kafka_publish_errors_total`. `start_http_server=false` for unit tests.
+- `src/ingress/server.h/cpp`: `EventIngressServiceImpl` now accepts optional `shared_ptr<IngressMetrics>`; records per-method counters + duration in `Submit`/`SubmitBatch`; kafka publish outcome in `PublishEvent`. Backward-compatible (nullptr disables recording — existing tests unchanged).
+- `src/ingress/CMakeLists.txt`: FetchContent pulls prometheus-cpp v1.2.4 at configure time (shallow clone, testing + compression disabled).
+- `src/ingress/Dockerfile`: added `git` for FetchContent; split configure (dep download) and build into separate layers for Docker cache efficiency; added `METRICS_ADDRESS` env var.
+- `tests/ingress/test_metrics.cpp`: 6 tests verifying all 5 metric families register and counters increment correctly.
+- `src/processor/metrics.py`: 7 metric families (`EVENTS_PROCESSED`, `EVENTS_SKIPPED`, `PROCESSING_DURATION` histogram, `KAFKA_CONSUMER_ERRORS`, `PRIMARY/REPLICA_STORE_ENTITIES` gauges, `FAILOVERS_TOTAL`); helper functions for every record path.
+- `src/processor/worker.py`: records processed/skipped + latency in `_process_event`; kafka errors in run loop; failover counter in `handle_node_failure`; store-size gauges refreshed every 15 s via `_store_gauge_loop`.
+- `src/processor/main.py`: starts prometheus HTTP server on `METRICS_PORT` (default 8081).
+- `tests/processor/test_metrics.py`: 7 tests covering every record function.
+- `infrastructure/grafana/provisioning/dashboards/dashboards.yml`: file-based dashboard provisioner, 30 s reload.
+- `infrastructure/grafana/provisioning/dashboards/deps_overview.json`: 9-panel dashboard — ingress RPS, error rate, p50/p95/p99 latency, Kafka publish rate; processor events/s per node, processing latency p99, store entity gauges, failover stat, consumer errors.
+- `infrastructure/prometheus/prometheus.yml`: concrete scrape targets — `ingress:8080`, `processor-1:8081`, `processor-2:8081`.
+- `infrastructure/docker-compose.yml`: processor-1 exposes `:8081`, processor-2 exposes `:8082→8081`; Grafana mounts datasources and dashboards dirs separately.
+
 ## [0.3.0] - 2026-05-14
 ### Added
 - Phase 3 complete: Processor & Sharding Logic.

@@ -18,9 +18,9 @@
 - [x] Implement state replication and automatic failover logic for the Python workers.
 
 ## Phase 4: Observability Integration
-- [ ] Instrument the C++ Ingress node with Prometheus metrics (requests/sec, latency).
-- [ ] Instrument the Python workers with Prometheus metrics (processing time, error rate).
-- [ ] Provision a default Grafana dashboard via configuration as code.
+- [x] Instrument the C++ Ingress node with Prometheus metrics (requests/sec, latency).
+- [x] Instrument the Python workers with Prometheus metrics (processing time, error rate).
+- [x] Provision a default Grafana dashboard via configuration as code.
 
 ## Phase 5: The AI Log Summarizer
 - [ ] Build a Python service using LangChain that tails the Docker logs or receives error events.
