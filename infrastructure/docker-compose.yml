@@ -80,6 +80,8 @@ services:
       context: ..
       dockerfile: src/processor/Dockerfile
     container_name: deps-processor-1
+    ports:
+      - "8081:8081"  # Prometheus metrics scrape
     environment:
       NODE_ID: "worker-1"
       ALL_NODES: "worker-1,worker-2"
@@ -87,6 +89,7 @@ services:
       KAFKA_TOPIC: "events"
       STATE_TOPIC: "state-updates"
       HEARTBEAT_TOPIC: "heartbeats"
+      METRICS_PORT: "8081"
     depends_on:
       kafka:
         condition: service_healthy
@@ -99,6 +102,8 @@ services:
       context: ..
       dockerfile: src/processor/Dockerfile
     container_name: deps-processor-2
+    ports:
+      - "8082:8081"  # Prometheus metrics scrape (host 8082 → container 8081)
     environment:
       NODE_ID: "worker-2"
       ALL_NODES: "worker-1,worker-2"
@@ -106,6 +111,7 @@ services:
       KAFKA_TOPIC: "events"
       STATE_TOPIC: "state-updates"
       HEARTBEAT_TOPIC: "heartbeats"
+      METRICS_PORT: "8081"
     depends_on:
       kafka:
         condition: service_healthy
@@ -155,7 +161,8 @@ services:
       GF_USERS_ALLOW_SIGN_UP: "false"
     volumes:
       - grafana-data:/var/lib/grafana
-      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
     depends_on:
       prometheus:
         condition: service_healthy
