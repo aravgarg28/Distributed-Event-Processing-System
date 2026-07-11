@@ -72,6 +72,21 @@ class TestLogSummarizerSummarize:
         s.summarize(burst)
         assert mock_chain.invoke.call_count == 1
 
+    def test_truncates_oversized_log_bursts(self):
+        from summarizer import MAX_LOG_LINES, MAX_LOG_CHARS
+        mock_chain = MagicMock()
+        mock_chain.invoke.return_value = "summary"
+
+        s = LogSummarizer(api_key="test-key")
+        s._chain = mock_chain
+
+        burst = self._make_burst([f"ERROR: line {i} " + "x" * 200 for i in range(500)])
+        s.summarize(burst)
+
+        sent_logs = mock_chain.invoke.call_args[0][0]["logs"]
+        assert len(sent_logs) <= MAX_LOG_CHARS
+        assert len(sent_logs.splitlines()) <= MAX_LOG_LINES
+
     def test_build_chain_creates_chain_attribute(self):
         with patch("summarizer.ChatGroq") as mock_llm_cls:
             mock_llm = MagicMock()

@@ -8,6 +8,8 @@ from log_monitor import ErrorBurst
 
 
 class GrafanaAnnotator:
+    REQUEST_TIMEOUT_S = 10
+
     def __init__(self, grafana_url: str, api_token: str, tags: List[str] = None):
         self.grafana_url = grafana_url.rstrip("/")
         self.api_token = api_token
@@ -24,7 +26,12 @@ class GrafanaAnnotator:
             "tags": list(set(self.tags + tags)),
             "time": int(time.time() * 1000),
         }
-        resp = requests.post(url, headers=headers, json=payload)
+        try:
+            resp = requests.post(
+                url, headers=headers, json=payload, timeout=self.REQUEST_TIMEOUT_S
+            )
+        except requests.RequestException as e:
+            raise RuntimeError(f"Grafana annotation request failed: {e}") from e
         if resp.status_code != 200:
             raise RuntimeError(
                 f"Grafana annotation failed: {resp.status_code} — {resp.text}"

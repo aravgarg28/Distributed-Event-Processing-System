@@ -1,7 +1,7 @@
 """AI Debugger service — polls Docker logs, summarizes errors, annotates Grafana."""
 import os
 import signal
-import time
+import threading
 
 import docker
 
@@ -18,18 +18,38 @@ GRAFANA_TOKEN = os.environ.get("GRAFANA_API_TOKEN", "")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 MODEL = os.environ.get("LLM_MODEL", "llama-3.3-70b-versatile")
 
-_running = True
+_shutdown = threading.Event()
 
 
 def _handle_signal(sig, frame):
-    global _running
     print(f"Received signal {sig}, shutting down.")
-    _running = False
+    _shutdown.set()
+
+
+def _handle_burst(burst, summarizer, annotator):
+    """Summarize and annotate one burst; failures are logged, never fatal."""
+    print(f"[{burst.container}] Error burst detected ({len(burst.lines)} lines)")
+    try:
+        summary = summarizer.summarize(burst)
+    except Exception as e:
+        print(f"[{burst.container}] LLM summarization failed: {e}")
+        return
+    print(f"[{burst.container}] Summary: {summary}")
+    try:
+        ann_id = annotator.annotate_burst(burst=burst, summary=summary)
+        print(f"[{burst.container}] Grafana annotation created: id={ann_id}")
+    except RuntimeError as e:
+        print(f"[{burst.container}] Grafana annotation failed: {e}")
 
 
 def main():
     signal.signal(signal.SIGTERM, _handle_signal)
     signal.signal(signal.SIGINT, _handle_signal)
+
+    if not GROQ_API_KEY:
+        print("WARNING: GROQ_API_KEY is empty — summarization calls will fail.")
+    if not GRAFANA_TOKEN:
+        print("WARNING: GRAFANA_API_TOKEN is empty — annotations will be rejected.")
 
     docker_client = docker.from_env()
     monitor = LogMonitor(
@@ -42,17 +62,13 @@ def main():
 
     print(f"AI Debugger watching: {CONTAINERS} — polling every {POLL_INTERVAL}s")
 
-    while _running:
-        for burst in monitor.scan(docker_client):
-            print(f"[{burst.container}] Error burst detected ({len(burst.lines)} lines)")
-            summary = summarizer.summarize(burst)
-            print(f"[{burst.container}] Summary: {summary}")
-            try:
-                ann_id = annotator.annotate_burst(burst=burst, summary=summary)
-                print(f"[{burst.container}] Grafana annotation created: id={ann_id}")
-            except RuntimeError as e:
-                print(f"[{burst.container}] Grafana annotation failed: {e}")
-        time.sleep(POLL_INTERVAL)
+    while not _shutdown.is_set():
+        try:
+            for burst in monitor.scan(docker_client):
+                _handle_burst(burst, summarizer, annotator)
+        except Exception as e:
+            print(f"Scan cycle failed: {e}")
+        _shutdown.wait(POLL_INTERVAL)
 
 
 if __name__ == "__main__":

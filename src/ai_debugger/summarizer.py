@@ -7,6 +7,11 @@ from langchain_core.prompts import ChatPromptTemplate
 
 from log_monitor import ErrorBurst
 
+# Hard caps on how much log text is sent to the LLM per burst — keeps prompts
+# inside model context limits and bounds per-call token spend.
+MAX_LOG_LINES = 50
+MAX_LOG_CHARS = 6000
+
 _PROMPT = ChatPromptTemplate.from_messages([
     (
         "system",
@@ -40,10 +45,18 @@ class LogSummarizer:
         llm = ChatGroq(model=self.model, api_key=self._api_key, max_tokens=256)
         self._chain = _PROMPT | llm | StrOutputParser()
 
+    @staticmethod
+    def _truncate_logs(burst: ErrorBurst) -> str:
+        lines = burst.lines[-MAX_LOG_LINES:]
+        text = "\n".join(lines)
+        if len(text) > MAX_LOG_CHARS:
+            text = text[-MAX_LOG_CHARS:]
+        return text
+
     def summarize(self, burst: ErrorBurst) -> str:
         if self._chain is None:
             self.build_chain()
         return self._chain.invoke({
             "container": burst.container,
-            "logs": burst.summary,
+            "logs": self._truncate_logs(burst),
         })

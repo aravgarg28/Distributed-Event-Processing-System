@@ -80,6 +80,27 @@ class TestGrafanaAnnotatorAnnotate:
             result = ann.annotate(text="summary", tags=[])
             assert result == 42
 
+    def test_sends_request_with_timeout(self):
+        ann = self._make_annotator()
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {"id": 1}
+
+        with patch("grafana_annotator.requests.post", return_value=mock_resp) as mock_post:
+            ann.annotate(text="summary", tags=[])
+            assert mock_post.call_args[1]["timeout"] == GrafanaAnnotator.REQUEST_TIMEOUT_S
+
+    def test_raises_runtime_error_on_connection_failure(self):
+        import requests as requests_lib
+        ann = self._make_annotator()
+
+        with patch(
+            "grafana_annotator.requests.post",
+            side_effect=requests_lib.ConnectionError("refused"),
+        ):
+            with pytest.raises(RuntimeError, match="request failed"):
+                ann.annotate(text="summary", tags=[])
+
     def test_raises_on_non_200_response(self):
         ann = self._make_annotator()
         mock_resp = MagicMock()
