@@ -21,6 +21,21 @@ class TestErrorBurstDataclass:
         burst = ErrorBurst(container="proc", lines=["E1", "E2"], detected_at=0.0)
         assert burst.summary == "E1\nE2"
 
+    def test_fingerprint_is_stable_for_same_content(self):
+        a = ErrorBurst(container="c1", lines=["E1", "E2"], detected_at=1.0)
+        b = ErrorBurst(container="c1", lines=["E1", "E2"], detected_at=99.0)
+        assert a.fingerprint == b.fingerprint
+
+    def test_fingerprint_differs_for_different_lines(self):
+        a = ErrorBurst(container="c1", lines=["E1"], detected_at=0.0)
+        b = ErrorBurst(container="c1", lines=["E2"], detected_at=0.0)
+        assert a.fingerprint != b.fingerprint
+
+    def test_fingerprint_differs_for_different_containers(self):
+        a = ErrorBurst(container="c1", lines=["E1"], detected_at=0.0)
+        b = ErrorBurst(container="c2", lines=["E1"], detected_at=0.0)
+        assert a.fingerprint != b.fingerprint
+
 
 class TestLogMonitorInit:
     def test_stores_container_names(self):
@@ -91,15 +106,16 @@ class TestLogMonitorCollectBurst:
 
 class TestLogMonitorTailContainer:
     def test_tails_logs_from_docker_client(self):
+        # docker-py's container.logs(tail=N) returns ONE bytes blob by default.
         mock_client = MagicMock()
         mock_container = MagicMock()
         mock_client.containers.get.return_value = mock_container
-        mock_container.logs.return_value = iter([
-            b"INFO: started\n",
-            b"ERROR: connection refused\n",
-            b"FATAL: shutting down\n",
-            b"ERROR: timeout\n",
-        ])
+        mock_container.logs.return_value = (
+            b"INFO: started\n"
+            b"ERROR: connection refused\n"
+            b"FATAL: shutting down\n"
+            b"ERROR: timeout\n"
+        )
 
         monitor = LogMonitor(containers=["ingress"], error_threshold=3)
         lines = list(monitor.tail_container(mock_client, "ingress", tail=100))
@@ -107,6 +123,17 @@ class TestLogMonitorTailContainer:
         mock_client.containers.get.assert_called_once_with("ingress")
         mock_container.logs.assert_called_once()
         assert len(lines) == 4
+        assert lines[1] == "ERROR: connection refused"
+
+    def test_handles_streamed_chunk_generator(self):
+        mock_client = MagicMock()
+        mock_container = MagicMock()
+        mock_client.containers.get.return_value = mock_container
+        mock_container.logs.return_value = iter([b"INFO: a\n", b"ERROR: b\n"])
+
+        monitor = LogMonitor(containers=["c1"])
+        lines = monitor.tail_container(mock_client, "c1")
+        assert lines == ["INFO: a", "ERROR: b"]
 
     def test_returns_empty_on_missing_container(self):
         import docker
@@ -148,8 +175,33 @@ class TestLogMonitorScan:
         mock_client = MagicMock()
         mock_container = MagicMock()
         mock_client.containers.get.return_value = mock_container
-        mock_container.logs.return_value = iter([b"INFO: ok\n"])
+        mock_container.logs.return_value = b"INFO: ok\n"
 
         monitor = LogMonitor(containers=["c1"], error_threshold=3)
         bursts = list(monitor.scan(mock_client))
         assert bursts == []
+
+    def test_scan_does_not_rereport_identical_burst(self):
+        """The log tail retains old errors — an unchanged burst must be reported once."""
+        mock_client = MagicMock()
+        mock_container = MagicMock()
+        mock_client.containers.get.return_value = mock_container
+        mock_container.logs.return_value = b"ERROR: a\nFATAL: b\nException: c\n"
+
+        monitor = LogMonitor(containers=["c1"], error_threshold=3)
+        first = list(monitor.scan(mock_client))
+        second = list(monitor.scan(mock_client))
+        assert len(first) == 1
+        assert second == []
+
+    def test_scan_reports_again_when_new_errors_appear(self):
+        mock_client = MagicMock()
+        mock_container = MagicMock()
+        mock_client.containers.get.return_value = mock_container
+
+        mock_container.logs.return_value = b"ERROR: a\nFATAL: b\nException: c\n"
+        monitor = LogMonitor(containers=["c1"], error_threshold=3)
+        assert len(list(monitor.scan(mock_client))) == 1
+
+        mock_container.logs.return_value = b"ERROR: a\nFATAL: b\nException: c\nERROR: new\n"
+        assert len(list(monitor.scan(mock_client))) == 1
