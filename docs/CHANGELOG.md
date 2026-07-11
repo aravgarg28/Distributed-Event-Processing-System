@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-07-11
+### Security
+- Added `.gitignore` — `infrastructure/.env` (real Groq/Grafana API keys) and OS/build artifacts can no longer be accidentally committed.
+- Grafana admin password is now configurable via `GRAFANA_ADMIN_PASSWORD` in `.env` instead of hardcoded `admin`.
+- Capped log text sent to the LLM at 50 lines / 6000 chars per burst (bounds token spend; keeps prompts inside context limits).
+
+### Fixed
+- `log_monitor.tail_container`: `container.logs(tail=N)` returns a single bytes blob, not an iterable of lines — iterating it yielded ints and crashed with `AttributeError` on the first real scan. Now decodes and `splitlines()`.
+- Error bursts are now deduplicated by SHA-256 fingerprint — previously the same tail-window errors were re-summarized (new Groq call) and re-annotated every 30 s poll, forever.
+- `grafana_annotator`: 10 s HTTP timeout (a hung Grafana froze the poll loop indefinitely); connection errors raise `RuntimeError` instead of propagating raw.
+- `main.py`: per-burst exception isolation — one LLM/Grafana failure no longer kills the service (which previously crash-looped under `restart: on-failure`); `threading.Event`-based shutdown makes SIGTERM immediate; startup warnings when API keys are empty.
+- `src/ingress/Dockerfile`: removed inline comments on `EXPOSE` lines (Dockerfiles parse them as extra port arguments and the build fails).
+- Grafana host port moved 3000 → 3001 to avoid clashing with another local project (container-internal URL unchanged).
+
 ## [0.5.0] - 2026-05-14
 ### Added
 - Phase 5 complete: AI Log Summarizer.
