@@ -50,8 +50,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 COPY --from=builder /build/cmake-build/ingress_server ./ingress_server
 
-EXPOSE 50051  # gRPC endpoint for event producers
-EXPOSE 8080   # Prometheus /metrics scrape endpoint
+# 50051 = gRPC endpoint for event producers; 8080 = Prometheus /metrics
+EXPOSE 50051
+EXPOSE 8080
 
 ENV KAFKA_BROKERS="kafka:29092"
 ENV KAFKA_TOPIC="events"
