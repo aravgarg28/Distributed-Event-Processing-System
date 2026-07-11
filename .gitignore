@@ -1,0 +1,25 @@
+# Secrets — never commit real API keys
+.env
+*.env
+!.env.example
+
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+.venv/
+venv/
+
+# C++ / CMake
+cmake-build*/
+build/
+CMakeCache.txt
+CMakeFiles/
+
+# IDE
+.idea/
+.vscode/
