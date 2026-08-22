@@ -27,6 +27,17 @@ On top of the data plane sits an **observability plane**: Prometheus scrapes met
 
 ---
 
+## See it in action
+
+The signature demo is the system **healing itself**: kill a worker mid-stream and watch a replica auto-promote in ~30s with zero data loss — then watch the AI debugger explain the failure on the dashboard.
+
+> 📽️ **Record the demo** → follow the 3-minute script in [`DEMO.md`](DEMO.md).
+> Drop the resulting clip in as `docs/demo.gif` and it renders right here.
+
+<!-- ![DEPS self-healing demo](docs/demo.gif) -->
+
+---
+
 ## Architecture
 
 ```
